@@ -1,0 +1,8 @@
+[package]
+name = "quant_lab"
+version.workspace = true
+edition.workspace = true
+default-run = "quant_lab"
+
+[dependencies]
+quant_core = { path = "../quant_core" }

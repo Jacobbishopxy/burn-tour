@@ -1,0 +1,11 @@
+[package]
+name = "burn_lab"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+burn = { workspace = true, optional = true }
+
+[features]
+default = []
+burn = ["dep:burn"]

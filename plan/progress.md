@@ -19,7 +19,7 @@ For each checkbox you complete, add:
 
 ### Burn + Training + Quant Engineering
 
-- [ ] 1) Burn tensors + devices (code + `docs/notes/burn_tensor_basics.md`)
+- [x] 1) Burn tensors + devices ([code](../docs/notes/burn_tensor_basics.md))
 - [ ] 2) Backends mental model (code + note)
 - [ ] 3) Autodiff debugging checklist (code + note)
 - [ ] 4) Modules + parameters + save/load (code + note)

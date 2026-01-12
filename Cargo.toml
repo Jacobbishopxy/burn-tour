@@ -9,4 +9,4 @@ edition = "2024"
 
 [workspace.dependencies]
 # Keep Burn pinned in one place for all study crates.
-burn = { version = "0.19.0", features = ["wgpu", "train"] }
+burn = { version = "0.19.0", features = ["ndarray", "wgpu", "train"] }

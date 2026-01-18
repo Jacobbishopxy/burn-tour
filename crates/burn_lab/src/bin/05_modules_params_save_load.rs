@@ -7,11 +7,16 @@
 
 #[cfg(feature = "burn")]
 use burn::{
+    // Backend types for autodiff + CPU execution.
     backend::{Autodiff, NdArray},
+    // Module traits + initializer for parameter setup.
     module::{Initializer, Module},
+    // Layer types + configs for defining the tiny network.
     nn::{Linear, LinearConfig},
+    // Recorder for save/load round-trip.
     record::DefaultRecorder,
-    tensor::{Tensor, activation::relu},
+    // Tensor type + activation used in forward pass.
+    tensor::{activation::relu, Tensor},
 };
 
 #[cfg(not(feature = "burn"))]
@@ -22,11 +27,14 @@ fn main() {
 
 #[cfg(feature = "burn")]
 fn main() {
+    // Autodiff backend on CPU for a small, deterministic demo.
     type B = Autodiff<NdArray>;
     let device = Default::default();
 
+    // Single input row for a tiny forward pass.
     let x = Tensor::<B, 2>::from_data([[1.0, -1.0]], &device);
 
+    // Build model A with a known initializer so save/load comparisons are clear.
     let model_a = TinyNet::<B>::new(&device, 0.1);
     let y_a = model_a.forward(x.clone()).to_data();
 
@@ -34,7 +42,7 @@ fn main() {
     println!("model_a.devices() = {:?}", model_a.devices());
     println!("y_a = {y_a:?}");
 
-    // Save model A.
+    // Save model A to a recorder-specific file path.
     let recorder = DefaultRecorder::new();
     let path = std::env::temp_dir().join("burn_lab").join("05_tiny_net");
     model_a
@@ -48,13 +56,17 @@ fn main() {
     let y_b = model_b.forward(x.clone()).to_data();
     println!("y_b (different init) = {y_b:?}");
 
+    // Load the saved weights into model B and verify outputs match model A.
     let model_loaded = model_b
         .load_file(path, &recorder, &device)
         .expect("load failed");
     let y_loaded = model_loaded.forward(x).to_data();
     println!("y_loaded (after load) = {y_loaded:?}");
 
-    assert_eq!(y_a, y_loaded, "loaded model output should match saved model");
+    assert_eq!(
+        y_a, y_loaded,
+        "loaded model output should match saved model"
+    );
 }
 
 #[cfg(feature = "burn")]
@@ -67,15 +79,20 @@ struct TinyNet<B: burn::tensor::backend::Backend> {
 #[cfg(feature = "burn")]
 impl<B: burn::tensor::backend::Backend> TinyNet<B> {
     fn new(device: &B::Device, init_value: f64) -> Self {
+        // Constant init keeps outputs predictable for the save/load round-trip.
         let init = Initializer::Constant { value: init_value };
 
-        let l1 = LinearConfig::new(2, 4).with_initializer(init.clone()).init(device);
+        // Two linear layers to show nested module parameters.
+        let l1 = LinearConfig::new(2, 4)
+            .with_initializer(init.clone())
+            .init(device);
         let l2 = LinearConfig::new(4, 1).with_initializer(init).init(device);
 
         Self { l1, l2 }
     }
 
     fn forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2> {
+        // Simple MLP forward to produce a scalar-ish output.
         let h = relu(self.l1.forward(x));
         self.l2.forward(h)
     }

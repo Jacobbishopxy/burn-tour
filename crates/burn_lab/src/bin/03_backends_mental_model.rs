@@ -13,11 +13,11 @@ fn main() {
 
 #[cfg(feature = "burn")]
 fn main() {
-    use burn::backend::NdArray;
-    use burn::backend::Wgpu;
     use burn::backend::wgpu::WgpuDevice;
+    use burn::backend::{Autodiff, NdArray, Wgpu};
     use burn::tensor::Tensor;
-    use burn::tensor::backend::Backend;
+    use burn::tensor::backend::{AutodiffBackend, Backend};
+    use std::time::Instant;
 
     fn demo_backend<B>(label: &str, device: &B::Device)
     where
@@ -33,9 +33,57 @@ fn main() {
         println!("x.dims() = {:?}", x.dims());
         println!("x = {x}");
 
-        let y = (x.clone().matmul(x.transpose()) + 1.0).mean();
+        let y = (x.clone().matmul(x.clone().transpose()) + 1.0).mean();
         println!("y.dims() = {:?}", y.dims());
         println!("y = {y}");
+    }
+
+    fn timed_forward<B>(device: &B::Device, iters: usize) -> (f32, std::time::Duration)
+    where
+        B: Backend,
+    {
+        let start = Instant::now();
+        let mut out = 0.0;
+
+        for _ in 0..iters {
+            let x = Tensor::<B, 2>::from_data([[1.0, 2.0], [3.0, 4.0]], device);
+            let y = (x.clone().matmul(x.transpose()) + 1.0).mean();
+            out = y.to_data().iter::<f32>().next().expect("scalar output");
+        }
+
+        B::sync(device);
+
+        (out, start.elapsed())
+    }
+
+    fn timed_forward_autodiff<B>(device: &B::Device, iters: usize) -> (f32, std::time::Duration)
+    where
+        B: AutodiffBackend,
+    {
+        let start = Instant::now();
+        let mut out = 0.0;
+
+        for _ in 0..iters {
+            let x = Tensor::<B, 2>::from_data([[1.0, 2.0], [3.0, 4.0]], device).require_grad();
+            let y = (x.clone().matmul(x.transpose()) + 1.0).mean();
+            out = y.to_data().iter::<f32>().next().expect("scalar output");
+        }
+
+        B::sync(device);
+
+        (out, start.elapsed())
+    }
+
+    fn grad_sample<B>(device: &B::Device) -> f32
+    where
+        B: AutodiffBackend,
+    {
+        let x = Tensor::<B, 2>::from_data([[1.0, 2.0], [3.0, 4.0]], device).require_grad();
+        let y = (x.clone().matmul(x.clone().transpose()) + 1.0).mean();
+        let grads = y.backward();
+        let grad = x.grad(&grads).expect("grad should exist");
+
+        grad.to_data().iter::<f32>().next().expect("grad sample")
     }
 
     // Backend choice #1: pure CPU with minimal setup.
@@ -58,5 +106,19 @@ fn main() {
     println!("Moved tensor to: {wgpu_gpu:?}");
     println!("x.device() = {:?}", x.device());
     println!("x = {x}");
-}
 
+    println!("\n== Wrapper sanity check (Autodiff vs Fusion) ==");
+    let iters = 100;
+    let (fusion_out, fusion_time) = timed_forward::<GpuBackend>(&wgpu_cpu, iters);
+    let (autodiff_out, autodiff_time) =
+        timed_forward_autodiff::<Autodiff<GpuBackend>>(&wgpu_cpu, iters);
+    let grad_sample = grad_sample::<Autodiff<GpuBackend>>(&wgpu_cpu);
+    println!("iters = {iters}");
+    println!("fusion output = {fusion_out}");
+    println!("autodiff output = {autodiff_out}");
+    println!("abs diff = {}", (fusion_out - autodiff_out).abs());
+    println!("fusion time = {fusion_time:?}");
+    println!("autodiff time = {autodiff_time:?}");
+    println!("autodiff grad sample = {grad_sample}");
+    println!("note: timings include host reads + sync, so treat as ballpark.");
+}

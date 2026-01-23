@@ -22,4 +22,3 @@ Get a working mental model for Burn’s high-level training stack:
 ## How to Run
 
 - `cargo run -p burn_lab --features burn --bin 07_training_learner`
-

@@ -31,7 +31,9 @@ fn main() {
     };
 
     // Persist hyperparams (so reruns can be compared / reproduced).
-    let cfg_path = std::env::temp_dir().join("burn_lab").join("06_tiny_net_config.json");
+    let cfg_dir = std::env::temp_dir().join("burn_lab");
+    std::fs::create_dir_all(&cfg_dir).expect("config dir create failed");
+    let cfg_path = cfg_dir.join("06_tiny_net_config.json");
     cfg.save(&cfg_path).expect("config save failed");
     let cfg_loaded = TinyNetConfig::load(&cfg_path).expect("config load failed");
     println!("cfg_path = {cfg_path:?}");
@@ -71,9 +73,13 @@ fn main() {
 #[cfg(feature = "burn")]
 #[derive(burn::config::Config, Debug)]
 struct TinyNetConfig {
+    // RNG seed for reproducible layer initialization.
     seed: u64,
+    // Input feature dimension; input shape is [batch, d_in].
     d_in: usize,
+    // Hidden layer width; l1 output shape is [batch, d_hidden].
     d_hidden: usize,
+    // Output dimension; l2 output shape is [batch, d_out].
     d_out: usize,
 }
 

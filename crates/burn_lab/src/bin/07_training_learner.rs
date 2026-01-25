@@ -24,12 +24,14 @@ fn main() {
     use burn::train::metric::LossMetric;
     use burn::train::LearnerBuilder;
 
+    // Train with autodiff; validate/infer on a plain backend to avoid grad overhead.
     type TrainB = Autodiff<NdArray>;
     type ValidB = NdArray;
 
     let device_train = Default::default();
     let device_valid = Default::default();
 
+    // Fixed seeds keep the synthetic data stable across runs for easier comparisons.
     let dataset_train = LinDataset::synthetic(512, 123);
     let dataset_valid = LinDataset::synthetic(128, 456);
 
@@ -55,6 +57,7 @@ fn main() {
 
     let learner = LearnerBuilder::new(dir)
         .num_epochs(5)
+        // Metrics run on the non-autodiff backend since they only need to read values.
         .metric_train_numeric(LossMetric::<ValidB>::new())
         .metric_valid_numeric(LossMetric::<ValidB>::new())
         .summary()
@@ -192,6 +195,7 @@ where
 {
     fn step(&self, item: LinBatch<B>) -> burn::train::TrainOutput<burn::train::RegressionOutput<B>> {
         let preds = self.forward(item.x);
+        // Per-item loss keeps metrics aligned with batch-level aggregation.
         let loss_per_item = (preds.clone() - item.y.clone())
             .powi_scalar(2)
             .mean_dim(1)
@@ -211,6 +215,7 @@ where
 {
     fn step(&self, item: LinBatch<B>) -> burn::train::RegressionOutput<B> {
         let preds = self.forward(item.x);
+        // Valid step mirrors train loss without backward; keep shapes identical for metrics.
         let loss_per_item = (preds.clone() - item.y.clone())
             .powi_scalar(2)
             .mean_dim(1)

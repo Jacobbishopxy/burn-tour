@@ -51,7 +51,10 @@ flowchart TD
   LD[LinDataset\nsamples: Vec<LinSample>]
   LB[LinBatch\nx: Tensor\ny: Tensor]
   LBT[LinBatcher]
+  LBTt["LinBatcher (train)"]
+  LBTv["LinBatcher (valid)"]
   LR[LinReg\nlinear: Linear]
+  LRI["LinReg::new(&device_train)"]
   DLB[DataLoaderBuilder]
   DLT["DataLoader (train)"]
   DLV["DataLoader (valid)"]
@@ -59,15 +62,33 @@ flowchart TD
   LRN[Learner]
   OPT["Adam (optimizer)"]
   MET[LossMetric]
+  TB["TrainB\nAutodiff<NdArray>"]
+  VB["ValidB\nNdArray"]
+  DT["device_train"]
+  DV["device_valid"]
+  DIR["Checkpoint dir\ntarget/burn_lab/07_training_learner"]
+  TM["trained.model\nValidB"]
 
   LD -->|contains| LS
   LD -->|implements| DS[Dataset<LinSample>]
-  LBT -->|batches Vec<LinSample>| LB
-  LBT -->|consumes| LS
+  LBTt -->|batches Vec<LinSample>| LB
+  LBTt -->|consumes| LS
+  LBTv -->|batches Vec<LinSample>| LB
+  LBTv -->|consumes| LS
   DLB -->|builds| DLT
   DLB -->|builds| DLV
+  DLT -->|uses| LBTt
+  DLV -->|uses| LBTv
   DLT -->|yields| LB
   DLV -->|yields| LB
+  TB -->|backend for| LR
+  DT -->|used by| LRI
+  LRI -->|creates| LR
+  TB -->|batches on| DLT
+  VB -->|batches on| DLV
+  VB -->|metric backend| MET
+  DT -->|device for| TB
+  DV -->|device for| VB
   LR -->|forward uses| LB
   LR -->|implements| TS[TrainStep<LinBatch, RegressionOutput>]
   LR -->|implements| VS[ValidStep<LinBatch, RegressionOutput>]
@@ -75,8 +96,11 @@ flowchart TD
   LRB -->|uses| OPT
   LRB -->|uses| MET
   LRB -->|uses| LR
+  LRB -->|writes to| DIR
   LRN -->|fit uses| DLT
   LRN -->|fit uses| DLV
+  LRN -->|produces| TM
+  LRN -->|writes to| DIR
 ```
 
 ## Code

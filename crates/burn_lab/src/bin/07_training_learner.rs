@@ -21,8 +21,8 @@ fn main() {
     use burn::data::dataloader::DataLoaderBuilder;
     use burn::optim::AdamConfig;
     use burn::tensor::Tensor;
-    use burn::train::metric::LossMetric;
     use burn::train::LearnerBuilder;
+    use burn::train::metric::LossMetric;
 
     // Train with autodiff; validate/infer on a plain backend to avoid grad overhead.
     type TrainB = Autodiff<NdArray>;
@@ -71,6 +71,22 @@ fn main() {
     println!("example prediction y = {y:?}");
 }
 
+/*
+LinDataset -> DataLoader -call-> LinBatcher::batch -> LinBatch<B> -> Leaner -call-> LinReg<B> -> TrainStep/ValidStep
+
+Data pipeline:
+- `LinDataset` owns `Vec<LinSample>`; `synthetic` builds data, and `Dataset` impl (get, len) is what `DataLoader` calls.
+- `LinBatcher<B>` is the adapter used by `DataLoader`: it converts `Vec<LinSample>` -> `LinBatch<B>` on a backend/device;
+    syntheticthe `Batcher` trait is the hook `DataLoader` needs.
+- `LinBatch<B>` is the actual batched tensor input for training/validation steps.
+
+Model + leaner hooks:
+- `LinReg<B>` is the model (just a `Linear`); `new` builds weights on a device, `forward` runs the linear layer.
+- `TrainStep` impl for `LinReg<B>` (requires `AutodiffBackend`): computes preds, per-item loss, mean loss, calls `backward`, returns
+    `TrainOutput` (model + grads + `RegressionOutput`). This is the training hook used by `Learner`.
+- `ValidStep` impl for `LinReg<B>` (any `Backend`): same loss computation, no `backward`, returns `RegressionOutput` for metrics.
+*/
+
 #[cfg(feature = "burn")]
 #[derive(Clone, Debug)]
 struct LinSample {
@@ -96,7 +112,10 @@ impl LinDataset {
             let x2 = (t * 0.031 + seed as f32 * 0.002).cos();
             let noise = (hash01(i as u64, seed) - 0.5) * 0.1;
             let y = 2.0 * x1 - 3.0 * x2 + 0.5 + noise;
-            samples.push(LinSample { x: [x1, x2], y: [y] });
+            samples.push(LinSample {
+                x: [x1, x2],
+                y: [y],
+            });
         }
 
         Self { samples }
@@ -193,7 +212,10 @@ impl<B> burn::train::TrainStep<LinBatch<B>, burn::train::RegressionOutput<B>> fo
 where
     B: burn::tensor::backend::AutodiffBackend,
 {
-    fn step(&self, item: LinBatch<B>) -> burn::train::TrainOutput<burn::train::RegressionOutput<B>> {
+    fn step(
+        &self,
+        item: LinBatch<B>,
+    ) -> burn::train::TrainOutput<burn::train::RegressionOutput<B>> {
         let preds = self.forward(item.x);
         // Per-item loss keeps metrics aligned with batch-level aggregation.
         let loss_per_item = (preds.clone() - item.y.clone())
@@ -204,6 +226,7 @@ where
         let grads = loss.backward();
 
         let out = burn::train::RegressionOutput::new(loss_per_item, preds, item.y);
+        // `TrainOutput` bundles outputs + gradients so `Learner` can run the optimizer step.
         burn::train::TrainOutput::new(self, grads, out)
     }
 }

@@ -39,7 +39,7 @@ flowchart TD
   GR --> OPT["Optimizer step (Learner)"]
   B --> VS["ValidStep (non-autodiff backend)"]
   VS --> MET[Metrics / logging]
-  LB[LearnerBuilder\nmodel + optimizer + metrics + checkpoints + epochs] -.-> TS
+  LB[LearnerBuilder<br/>model + optimizer + metrics + checkpoints + epochs] -.-> TS
   LB -.-> VS
 ```
 
@@ -47,13 +47,13 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  LS["LinSample\nx: [f32; 2]\ny: [f32; 1]"]
-  LD[LinDataset\nsamples: Vec<LinSample>]
-  LB[LinBatch\nx: Tensor\ny: Tensor]
+  LS["LinSample<br/>x: [f32; 2]<br/>y: [f32; 1]"]
+  LD[LinDataset<br/>samples: Vec<LinSample>]
+  LB[LinBatch<br/>x: Tensor<br/>y: Tensor]
   LBT[LinBatcher]
   LBTt["LinBatcher (train)"]
   LBTv["LinBatcher (valid)"]
-  LR[LinReg\nlinear: Linear]
+  LR[LinReg<br/>linear: Linear]
   LRI["LinReg::new(&device_train)"]
   DLB[DataLoaderBuilder]
   DLT["DataLoader (train)"]
@@ -62,12 +62,12 @@ flowchart TD
   LRN[Learner]
   OPT["Adam (optimizer)"]
   MET[LossMetric]
-  TB["TrainB\nAutodiff<NdArray>"]
-  VB["ValidB\nNdArray"]
+  TB["TrainB<br/>Autodiff<NdArray>"]
+  VB["ValidB<br/>NdArray"]
   DT["device_train"]
   DV["device_valid"]
-  DIR["Checkpoint dir\ntarget/burn_lab/07_training_learner"]
-  TM["trained.model\nValidB"]
+  DIR["Checkpoint dir<br/>target/burn_lab/07_training_learner"]
+  TM["trained.model<br/>ValidB"]
 
   LD -->|contains| LS
   LD -->|implements| DS[Dataset<LinSample>]
